@@ -6,8 +6,74 @@ from datetime import datetime, timezone, timedelta
 
 
 
+def build_horizontal_menu(memory, user_id):
+    """Constrói o menu horizontal no topo do aplicativo."""
+    # Key única baseada no user_id para manter consistência
+    unique_key = f"file_uploader_{user_id}"
+    
+    # Container para o menu horizontal
+    col1, col2, col3 = st.columns([2, 3, 2])
+    
+    with col1:
+        st.markdown("### 📤 Upload de Dados")
+        
+        # SOLUÇÃO: File uploader SEM customizações
+        uploaded_file = st.file_uploader(
+            "Selecione seu arquivo CSV",
+            type=["csv"],
+            accept_multiple_files=False,
+            key=unique_key
+        )
+        
+        # Debug: Mostrar estado do upload
+        if uploaded_file is None:
+            st.info("📁 Nenhum arquivo selecionado. Clique em 'Browse files' acima.")
+        else:
+            st.success(f"✅ Arquivo carregado: {uploaded_file.name}")
+    
+    with col2:
+        st.markdown("### 📊 Histórico de Sessões")
+        sessions = memory.get_user_sessions(user_id)
+        if sessions and len(sessions) > 0:
+            # Mostrar apenas as 3 sessões mais recentes em formato compacto
+            recent_sessions = sessions[:3]
+            session_options = []
+            for session in recent_sessions:
+                try:
+                    created_at_str = session['created_at']
+                    if 'Z' in created_at_str or '+00:00' in created_at_str:
+                        created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                        local_time = created_at.astimezone()
+                    else:
+                        created_at = datetime.fromisoformat(created_at_str).replace(tzinfo=timezone.utc)
+                        local_time = created_at.astimezone()
+                    
+                    session_label = f"{session['dataset_name']} - {local_time.strftime('%d/%m/%Y %H:%M')}"
+                    session_options.append(session_label)
+                except Exception:
+                    session_options.append(f"Sessão {session['id'][-6:]}")
+            
+            st.selectbox(
+                "Sessões recentes",
+                options=session_options,
+                key="session_selector",
+                label_visibility="collapsed"
+            )
+        else:
+            st.info("Nenhuma sessão anterior")
+    
+    with col3:
+        st.markdown("### ⚙️ Configurações")
+        if st.button("🔄 Limpar Sessão", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+    
+    st.markdown("---")
+    return uploaded_file
+
+
 def build_sidebar(memory, user_id):
-    """Constrói a sidebar do aplicativo."""
+    """Constrói a sidebar do aplicativo (mantido para compatibilidade)."""
     with st.sidebar:
         st.header("Análise EDA com IA")
 

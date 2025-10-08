@@ -12,7 +12,7 @@ from utils.config import get_config
 from utils.memory import SupabaseMemory
 from utils.data_loader import load_csv, get_dataset_info
 from utils.chart_cache import exec_with_cache  # Import do cache de gráficos
-from components.ui_components import build_sidebar, display_chat_message, display_code_with_streamlit_suggestion
+from components.ui_components import build_sidebar, build_horizontal_menu, display_chat_message, display_code_with_streamlit_suggestion
 from components.notebook_generator import create_jupyter_notebook
 from components.suggestion_generator import generate_dynamic_suggestions, get_fallback_suggestions, extract_conversation_context
 # Importação dos agentes
@@ -31,142 +31,437 @@ st.set_page_config(layout="wide", page_title="InsightAgent EDA")
 st.markdown(
     """
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
         :root {
-            --primary: #6C5CE7;
-            --bg: #0f1226;
-            --bg2: #1b1f3b;
-            --text: #EDEBFF;
-            --muted: #a8a4ff;
-            --success: #00C853;
-            --warning: #FFC400;
-            --error: #FF5252;
+            --primary: #6366F1;
+            --primary-dark: #4F46E5;
+            --secondary: #8B5CF6;
+            --accent: #EC4899;
+            --bg: #0a0e1a;
+            --bg2: #0f1729;
+            --bg3: #1a1f35;
+            --card-bg: rgba(26, 31, 53, 0.8);
+            --text: #F1F5F9;
+            --text-muted: #94A3B8;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --error: #EF4444;
+            --border: rgba(148, 163, 184, 0.1);
+            --glow: rgba(99, 102, 241, 0.4);
         }
         
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        /* Background com animação sutil */
         html, body, [data-testid="stAppViewContainer"] {
             background:
-                radial-gradient(1200px 800px at 10% 10%, rgba(108,92,231,0.15), transparent),
-                linear-gradient(180deg, #0f1226 0%, #0a0c1a 100%);
+                radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.05) 0%, transparent 70%),
+                linear-gradient(135deg, #0a0e1a 0%, #0f1729 50%, #0a0e1a 100%);
+            background-size: 100% 100%;
             color: var(--text);
+            animation: gradientShift 15s ease infinite;
         }
         
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        /* Sidebar Premium */
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #171a33 0%, #11142a 100%);
-            border-right: 1px solid rgba(237,235,255,0.08);
+            background: 
+                linear-gradient(180deg, rgba(15, 23, 41, 0.95) 0%, rgba(10, 14, 26, 0.98) 100%);
+            border-right: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
         }
         
-        [data-testid="stHeader"] { background: transparent; }
+        [data-testid="stSidebar"]::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+            opacity: 0.8;
+        }
         
-        h1, h2, h3, h4, h5, h6 { color: var(--text); }
-        p, li, span, label { color: var(--text); }
+        [data-testid="stHeader"] { 
+            background: transparent;
+        }
         
-        /* Títulos da Sidebar - Hierarquia melhorada */
+        /* Tipografia melhorada */
+        h1, h2, h3, h4, h5, h6 { 
+            color: var(--text);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        h1 { font-size: 2.5rem; line-height: 1.2; }
+        h2 { font-size: 1.875rem; line-height: 1.3; margin-top: 2rem; }
+        h3 { font-size: 1.5rem; line-height: 1.4; }
+        
+        p, li, span, label { 
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        /* Títulos da Sidebar com efeito neon sutil */
         [data-testid="stSidebar"] h2,
         [data-testid="stSidebar"] h3 {
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-size: 0.8rem;
-            color: #A0AEC0;
-            margin-top: 2rem;
+            letter-spacing: 0.1em;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-top: 2.5rem;
             margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            position: relative;
         }
         
-        /* Área de Upload - Drag and Drop melhorada */
+        [data-testid="stSidebar"] h2::after,
+        [data-testid="stSidebar"] h3::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 40px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), transparent);
+        }
+        
+        /* Área de Upload Premium com animação */
         [data-testid="stFileUploader"] {
-            background-color: rgba(255, 255, 255, 0.03);
-            border: 2px dashed #4A5568;
-            border-radius: 8px;
-            padding: 1rem;
-            transition: all 0.2s ease-in-out;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        [data-testid="stFileUploader"]::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
         
         [data-testid="stFileUploader"]:hover {
-            border-color: #6366F1;
-            background-color: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        [data-testid="stFileUploader"]:hover::before {
+            opacity: 1;
         }
         
         /* Espaçamento entre seções da sidebar */
         [data-testid="stSidebar"] > div > div > div {
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
         }
         
-        /* Botões */
+        /* Botões com efeito glassmorphism */
         .stButton > button {
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: #fff;
             border: none;
-            border-radius: 8px;
-            padding: 0.6rem 1rem;
-            box-shadow: 0 8px 20px rgba(108,92,231,0.35);
-            transition: all 0.2s ease-in-out;
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.02em;
+            box-shadow: 
+                0 4px 16px rgba(99, 102, 241, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stButton > button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
         }
         
         .stButton > button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.2);
+            transform: translateY(-3px);
+            box-shadow: 
+                0 8px 24px rgba(99, 102, 241, 0.4),
+                0 0 40px rgba(99, 102, 241, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
         
-        .stButton > button:focus { outline: 2px solid rgba(108,92,231,0.6); }
+        .stButton > button:hover::before {
+            left: 100%;
+        }
         
-        /* Chat messages */
+        .stButton > button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* Chat messages com glassmorphism */
         [data-testid="stChatMessage"] {
-            background: rgba(27,31,59,0.7);
-            border: 1px solid rgba(237,235,255,0.06);
-            border-radius: 14px;
-            padding: 0.75rem 1rem;
-            margin-bottom: 0.75rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
         }
         
-        /* Code blocks */
+        [data-testid="stChatMessage"]:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            transform: translateX(4px);
+        }
+        
+        /* Code blocks premium */
         code, pre {
-            background: #141833 !important;
-            color: #d7d4ff !important;
-            border-radius: 8px !important;
+            background: linear-gradient(135deg, #0f1729 0%, #1a1f35 100%) !important;
+            color: #E0E7FF !important;
+            border-radius: 10px !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3) !important;
         }
         
-        /* DataFrame container */
+        pre {
+            padding: 1rem !important;
+        }
+        
+        /* DataFrame container premium */
         [data-testid="stDataFrame"] {
-            background: rgba(27,31,59,0.6);
-            border-radius: 8px;
-            border: 1px solid rgba(237,235,255,0.06);
-            padding: 0.25rem;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 0.5rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
         
-        /* Alerts/notifications */
+        /* Alerts/notifications premium */
         div[role="alert"] {
-            background: rgba(27,31,59,0.8) !important;
+            background: var(--card-bg) !important;
             color: var(--text) !important;
             border-left: 4px solid var(--primary) !important;
-            border-radius: 8px !important;
+            border-radius: 10px !important;
+            backdrop-filter: blur(10px) !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        /* Success alerts */
+        .stSuccess {
+            border-left-color: var(--success) !important;
+        }
+        
+        /* Warning alerts */
+        .stWarning {
+            border-left-color: var(--warning) !important;
+        }
+        
+        /* Error alerts */
+        .stError {
+            border-left-color: var(--error) !important;
         }
         
         /* Footer separator */
-        hr { border-color: rgba(237,235,255,0.12); }
+        hr { 
+            border: none;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            margin: 3rem 0;
+        }
         
-        /* Título Principal com Gradiente */
+        /* Hero Section - Título Principal */
+        .hero-section {
+            text-align: center;
+            padding: 3rem 2rem;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
         .main-title {
-            background: linear-gradient(to right, #a78bfa, #818cf8);
+            background: linear-gradient(135deg, #A78BFA 0%, #818CF8 50%, #6366F1 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            font-size: 2.5rem;
-            font-weight: 700;
+            font-size: 3.5rem;
+            font-weight: 800;
             margin-bottom: 1rem;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            animation: titleGlow 3s ease-in-out infinite;
+            display: inline-block;
         }
         
-        /* Texto de Instrução - Melhor Legibilidade */
-        .instruction-text {
-            max-width: 550px;
-            margin: 1rem auto;
-            color: #CBD5E0;
+        @keyframes titleGlow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.3)); }
+            50% { filter: drop-shadow(0 0 40px rgba(99, 102, 241, 0.5)); }
+        }
+        
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            max-width: 700px;
+            margin: 0 auto 2rem;
             line-height: 1.6;
-            text-align: center;
         }
         
-        /* Ícone do título maior */
-        .main-title-icon {
-            font-size: 2.5rem;
-            margin-right: 1rem;
+        .badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            backdrop-filter: blur(10px);
+            margin: 0.25rem;
         }
+        
+        /* Ícone do título com animação */
+        .main-title-icon {
+            font-size: 3.5rem;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+            margin-right: 1rem;
+            filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.5));
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* Cards de seção */
+        .section-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .section-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transform: translateY(-4px);
+        }
+        
+        /* Input customizado */
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea {
+            background: var(--bg3) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 10px !important;
+            color: var(--text) !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .stTextInput > div > div > input:focus,
+        .stTextArea > div > div > textarea:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+        }
+        
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg2);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--primary), var(--secondary));
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, var(--primary-dark), var(--primary));
+        }
+        
+        /* Sidebar com estilo premium */
+        [data-testid="stSidebar"] {
+            display: block !important;
+        }
+        
+        /* File Uploader - FORÇAR CLICABILIDADE */
+        [data-testid="stFileUploader"] {
+            position: relative !important;
+            z-index: 1000 !important;
+        }
+        
+        [data-testid="stFileUploader"] button {
+            position: relative !important;
+            z-index: 1001 !important;
+            pointer-events: auto !important;
+            cursor: pointer !important;
+        }
+        
+        [data-testid="stFileUploader"] input[type="file"] {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+        }
+        
+        /* Garantir que nada sobreponha o file uploader */
+        .horizontal-menu [data-testid="stFileUploader"] {
+            position: relative !important;
+            z-index: 1000 !important;
+        }
+        
+        .horizontal-menu [data-testid="stFileUploader"] button {
+            position: relative !important;
+            z-index: 1001 !important;
+            pointer-events: auto !important;
+            cursor: pointer !important;
+        }
+        
+        /* Remover qualquer overlay que possa estar bloqueando */
+        .horizontal-menu::before,
+        .horizontal-menu::after {
+            pointer-events: none !important;
+        }
+        
+        /* Selectbox customizado */
+        .stSelectbox > div > div {
+            background: var(--bg3) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 10px !important;
+            color: var(--text) !important;
+        }
+        
     </style>
     """,
     unsafe_allow_html=True,
@@ -210,7 +505,7 @@ uploaded_file = build_sidebar(memory, st.session_state.user_id)
 
 # --- Lógica Principal de Processamento do CSV ---
 if uploaded_file is not None:
-    st.sidebar.success("Arquivo CSV carregado com sucesso!")
+    st.success("✅ Arquivo CSV carregado com sucesso!")
     if st.session_state.df is None:
             try:
                 df, file_hash = load_csv(uploaded_file)
@@ -259,7 +554,7 @@ if uploaded_file is not None:
 
 # Verificação: se não há arquivo carregado mas há dados no estado, limpar automaticamente
 if uploaded_file is None and st.session_state.get('df') is not None:
-    st.sidebar.info("📤 Nenhum arquivo carregado. Os dados foram limpos automaticamente.")
+    st.info("📤 Nenhum arquivo carregado. Os dados foram limpos automaticamente.")
     # Limpar dados automaticamente
     st.session_state.df = None
     st.session_state.df_info = None
@@ -270,11 +565,23 @@ if uploaded_file is None and st.session_state.get('df') is not None:
 
 # --- Área Principal de Exibição ---
 st.markdown(
-    '<h1 class="main-title"><span class="main-title-icon">🤖</span>InsightAgent EDA</h1>',
-    unsafe_allow_html=True
-)
-st.markdown(
-    '<p class="instruction-text">Faça o upload de um arquivo CSV na barra lateral para começar a explorar seus dados com análise inteligente baseada em IA.</p>',
+    """
+    <div class="hero-section">
+        <div>
+            <span class="main-title-icon">🤖</span>
+            <h1 class="main-title">InsightAgent EDA</h1>
+        </div>
+        <p class="subtitle">
+            Transforme seus dados em insights acionáveis com o poder da Inteligência Artificial.
+            Análise exploratória automatizada, visualizações inteligentes e recomendações estratégicas.
+        </p>
+        <div>
+            <span class="badge">🚀 Powered by AI</span>
+            <span class="badge">📊 Multi-Agent System</span>
+            <span class="badge">⚡ Real-time Analysis</span>
+        </div>
+    </div>
+    """,
     unsafe_allow_html=True
 )
 
